@@ -2,13 +2,16 @@ package com.spiro.randomdrops;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.LootTable;
@@ -25,46 +28,40 @@ import java.util.Set;
 /**
  * RandomDrops
  *
- * Every time a player breaks a block, this mod drops ONLY a random item —
+ * Every time a player breaks a block, this mod drops ONLY a random outcome —
  * the block's normal drop is suppressed.
  *
- * The drop is DETERMINISTIC per block type WITHIN a world: the same kind of
- * block always gives the same random item in that world, so it feels like a
- * consistent "loot randomizer" rather than pure chaos every swing.
+ * The outcome is DETERMINISTIC per block type WITHIN a world: the same kind of
+ * block always gives the same thing in that world, so it feels like a consistent
+ * "loot randomizer" rather than pure chaos every swing. The mapping is also
+ * UNIQUE PER WORLD because the world seed is mixed into the RNG, so every new
+ * world rolls a completely different set of drops.
  *
- * The mapping is also UNIQUE PER WORLD: the world's seed is mixed into the RNG,
- * so every new world you create rolls a completely different set of drops.
+ * An "outcome" is usually a single item, but some block types are instead mapped
+ * to a whole STRUCTURE CHEST loot table (end city, bastion, ancient city, etc.).
+ * That mapping is decided by the seed exactly the way an item mapping is — there
+ * is NO random chance. If the seed assigns a chest table to a block, that block
+ * ALWAYS drops that chest's loot (and nothing else); the contents themselves roll
+ * fresh each break, just like opening a real chest.
  *
- * TWO extra rules layered on top:
- *   1. Only items you can actually get in survival are ever rolled. Creative-only
- *      junk (barrier, light, bedrock, command blocks, spawn eggs, etc.) is skipped
- *      so a block never maps to something useless you can't legitimately obtain.
- *   2. RARELY (see CHEST_LOOT_CHANCE) a break instead spits out the full contents
- *      of a random structure chest — end city, desert pyramid, bastion, ancient
- *      city, trial chambers, shipwreck, village... When that happens you get ONLY
- *      the chest loot and nothing else. The rest of the time you get the usual
- *      single mapped item.
+ * Rules that keep it clean:
+ *   - Only survival-obtainable items are ever rolled (no barriers, command blocks,
+ *     spawn eggs, etc.).
+ *   - A block NEVER drops its own item, so you can't set up an infinite
+ *     break/replace duplication loop.
+ *   - Blocks that naturally drop nothing even with the right tool (fire, etc.)
+ *     drop nothing here too.
+ *   - Multi-part blocks (doors, beds, tall plants) no longer drop themselves
+ *     alongside the random outcome.
  */
 public class RandomDrops implements ModInitializer {
 	public static final String MOD_ID = "randomdrops";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	/**
-	 * Chance, per block break, that the block coughs up a structure chest's loot
-	 * instead of its normal single mapped item. Kept decently rare so the usual
-	 * one-item drop stays the norm. 0.03 = 3% (~1 in 33 blocks). Bump it up or
-	 * down to taste.
-	 */
-	private static final double CHEST_LOOT_CHANCE = 0.03;
-
-	/** RNG for the rare chest-loot roll. Per-break random, NOT tied to the seed. */
-	private static final Random LOOT_RNG = new Random();
-
-	/**
 	 * Items that exist in the registry but can't be obtained legitimately in
 	 * survival. Matched by their registry id path (e.g. "command_block"). All
-	 * spawn eggs are filtered separately by the "_spawn_egg" suffix, so they
-	 * don't need listing here.
+	 * spawn eggs are filtered separately by the "_spawn_egg" suffix.
 	 */
 	private static final Set<String> CREATIVE_ONLY = Set.of(
 			"barrier",
@@ -98,8 +95,8 @@ public class RandomDrops implements ModInitializer {
 	);
 
 	/**
-	 * The pool of structure chest loot tables a rare break can roll. Covers the
-	 * chest loot from basically every generated structure in the game.
+	 * Structure chest loot tables. The seed can map a block to any of these, in
+	 * which case that block always drops that chest's loot.
 	 */
 	private static final List<ResourceKey<LootTable>> STRUCTURE_CHESTS = List.of(
 			BuiltInLootTables.END_CITY_TREASURE,
@@ -165,53 +162,59 @@ public class RandomDrops implements ModInitializer {
 				return true;
 			}
 
-			ServerLevel serverLevel = (ServerLevel) world;
+			// Blocks that naturally drop nothing even with the right tool (fire,
+			// portals, etc.) should still drop nothing. Letting vanilla handle the
+			// break gives exactly that — no item.
+			if (dropsNothing(state)) {
+				return true;
+			}
 
-			// RARE: instead of the usual mapped item, dump a whole structure chest's
-			// worth of loot. Rolled per break (not tied to the seed) so it's a genuine
-			// surprise rather than "this block type always does it".
-			if (LOOT_RNG.nextDouble() < CHEST_LOOT_CHANCE) {
-				List<ItemStack> loot = rollStructureChest(serverLevel, pos);
-				if (!loot.isEmpty()) {
-					// Break with no normal drops, then pop ONLY the chest loot.
-					world.destroyBlock(pos, false);
+			ServerLevel serverLevel = (ServerLevel) world;
+			Block brokenBlock = state.getBlock();
+
+			// Mix the world seed with the block's registry id so the same block type
+			// always maps to the same outcome in this world, but a different world
+			// (different seed) maps differently.
+			int blockId = BuiltInRegistries.BLOCK.getId(brokenBlock);
+			Random random = new Random(serverLevel.getSeed() * 31L + blockId);
+
+			int chestCount = STRUCTURE_CHESTS.size();
+			int itemCount = BuiltInRegistries.ITEM.size();
+			int total = itemCount + chestCount;
+
+			// Pick the deterministic outcome. Chest loot tables live in the SAME
+			// selection space as items, so being mapped to chest loot is just another
+			// possible "drop" decided by the seed — never a random per-break chance.
+			while (true) {
+				int roll = random.nextInt(total);
+
+				if (roll < chestCount) {
+					// This block type is the one that drops this chest's loot. Always.
+					List<ItemStack> loot = rollChest(serverLevel, pos, STRUCTURE_CHESTS.get(roll));
+					breakWithoutDrops(world, pos, state);
 					for (ItemStack stack : loot) {
 						Block.popResource(world, pos, stack);
 					}
 					return false;
 				}
-				// If the rolled table happened to come up empty, fall through to the
-				// normal single-item drop so the break still gives something.
+
+				Item drop = BuiltInRegistries.ITEM.byId(roll - chestCount);
+				if (!isSurvivalObtainable(drop)) {
+					continue;
+				}
+				// Never drop the block's own item — that would let you break/replace
+				// the same block forever for an infinite supply.
+				if (drop == brokenBlock.asItem()) {
+					continue;
+				}
+
+				breakWithoutDrops(world, pos, state);
+				Block.popResource(world, pos, new ItemStack(drop));
+				return false;
 			}
-
-			// Mix the world's seed together with the block's registry id so that:
-			//   - same block type in the SAME world -> always the same item, but
-			//   - a different world (different world seed) -> a different mapping.
-			// That's why every new world you create now has its own unique drops.
-			int blockId = BuiltInRegistries.BLOCK.getId(state.getBlock());
-			long worldSeed = serverLevel.getSeed();
-			Random random = new Random(worldSeed * 31L + blockId);
-
-			int itemCount = BuiltInRegistries.ITEM.size();
-
-			// Pick a random item, skipping AIR and anything you can't get in survival
-			// so every break gives a legitimately obtainable item.
-			Item drop;
-			do {
-				drop = BuiltInRegistries.ITEM.byId(random.nextInt(itemCount));
-			} while (!isSurvivalObtainable(drop));
-
-			// Remove the block WITHOUT its normal drops (dropBlock = false), keeping
-			// the break particles and sound, then pop out only our random item.
-			world.destroyBlock(pos, false);
-			Block.popResource(world, pos, new ItemStack(drop));
-
-			// Returning false cancels the vanilla break so it can't also drop the
-			// block's usual item.
-			return false;
 		});
 
-		LOGGER.info("RandomDrops loaded — every block now drops a random item (with a rare chance of full structure chest loot)!");
+		LOGGER.info("RandomDrops loaded — every block now drops a seed-mapped random item or structure chest loot!");
 	}
 
 	/** True only for items a player can legitimately obtain in survival. */
@@ -226,20 +229,34 @@ public class RandomDrops implements ModInitializer {
 		return !CREATIVE_ONLY.contains(path);
 	}
 
+	/** True if this block has no loot table at all (e.g. fire) — it should drop nothing. */
+	private static boolean dropsNothing(BlockState state) {
+		return state.getBlock().getLootTable().isEmpty();
+	}
+
 	/**
-	 * Rolls the loot of one random structure chest at the given position.
-	 * Retries a few different tables if one comes up empty, so a rare proc
-	 * rarely feels like a total dud. Returns an empty list only if every
-	 * attempt was empty.
+	 * Clears the block (and any attached parts like door/bed halves and tall
+	 * plants) WITHOUT any natural drops, keeping the break particles and sound.
+	 * UPDATE_SUPPRESS_DROPS propagates through the neighbour updates, so the
+	 * partner half can't sneak a drop in either.
 	 */
-	private static List<ItemStack> rollStructureChest(ServerLevel level, net.minecraft.core.BlockPos pos) {
+	private static void breakWithoutDrops(Level world, BlockPos pos, BlockState state) {
+		world.levelEvent(2001, pos, Block.getId(state));
+		world.setBlock(pos, world.getFluidState(pos).createLegacyBlock(),
+				Block.UPDATE_ALL | Block.UPDATE_SUPPRESS_DROPS);
+	}
+
+	/**
+	 * Rolls the loot of a structure chest at the given position. Retries a few
+	 * times on the same table if it comes up empty so the mapped block rarely
+	 * feels like a dud. Returns empty only if every roll was empty.
+	 */
+	private static List<ItemStack> rollChest(ServerLevel level, BlockPos pos, ResourceKey<LootTable> key) {
 		LootParams params = new LootParams.Builder(level)
 				.withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(pos))
 				.create(LootContextParamSets.CHEST);
-
+		LootTable table = level.getServer().reloadableRegistries().getLootTable(key);
 		for (int attempt = 0; attempt < 6; attempt++) {
-			ResourceKey<LootTable> key = STRUCTURE_CHESTS.get(LOOT_RNG.nextInt(STRUCTURE_CHESTS.size()));
-			LootTable table = level.getServer().reloadableRegistries().getLootTable(key);
 			List<ItemStack> loot = table.getRandomItems(params);
 			if (!loot.isEmpty()) {
 				return loot;
