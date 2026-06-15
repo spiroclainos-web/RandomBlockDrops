@@ -19,9 +19,14 @@ A Fabric mod by **Spiro**. Released under **CC0-1.0** — do whatever you want w
   into the RNG.
 - Creative-only items (barriers, light, bedrock, command blocks, spawn eggs, etc.) are
   filtered out so you never roll something un-obtainable.
-- A small per-break chance (`CHEST_LOOT_CHANCE`, default 3%) drops a full structure
-  chest's loot instead of the single item. When that happens you get **only** the chest
-  loot.
+- A block never drops its own item, so there are no infinite break-and-replace dupes.
+- Blocks that naturally drop nothing (e.g. fire) drop nothing here too.
+- Multi-part blocks (doors, beds, tall plants) no longer drop themselves alongside the
+  random outcome.
+- Some block types are mapped to a whole **structure chest loot table** instead of a
+  single item. This is decided by the seed exactly like an item mapping — **no random
+  chance**. If the seed assigns a chest to a block, that block always drops that chest's
+  loot (and nothing else).
 
 ## Versions
 
@@ -53,6 +58,6 @@ The finished jar lands in `build/libs/`. Requires **Fabric API** at runtime.
 
 All the knobs are constants at the top of `RandomDrops.java`:
 
-- `CHEST_LOOT_CHANCE` — how often a break drops chest loot.
 - `CREATIVE_ONLY` — item IDs to keep out of the drop pool.
-- `STRUCTURE_CHESTS` — which structure loot tables can drop.
+- `STRUCTURE_CHESTS` — which structure loot tables can be mapped to blocks. The size of
+  this list vs the item registry determines roughly how many block types map to chests.

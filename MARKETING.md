@@ -51,8 +51,10 @@ the entire mapping. So every seed is basically its own loot puzzle to figure out
 A few things I added to make it feel less random-junk and more rewarding:
 - Only **survival-obtainable items** can drop (no barriers, command blocks, spawn
   eggs, etc. clogging the pool).
-- On rare breaks (~3%), a block drops the **full contents of a real structure chest**
-  instead — end cities, bastions, ancient cities, shipwrecks, villages, and more.
+- Some block types are mapped to a **full structure chest's loot** instead of a single
+  item — end cities, bastions, ancient cities, shipwrecks, villages, and more. Which
+  blocks those are is set by the seed (no random chance), so finding your world's
+  "chest blocks" is part of the fun.
 
 It's **free and open-source** (CC0), built with Fabric. I made builds for
 **1.20.1, 1.21.1, 1.21.5, and the latest** so far.

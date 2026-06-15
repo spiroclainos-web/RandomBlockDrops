@@ -17,15 +17,17 @@ No two worlds play the same. Every seed is its own puzzle to crack.
 
 ---
 
-## 💎 Rare structure chest loot
+## 💎 Structure chest blocks
 
-Sometimes a block doesn't just give you an item — it spills an **entire structure chest's worth of loot.**
+Some block types don't drop a single item — they drop the **entire contents of a structure chest**, pulled straight from the game's own loot tables.
 
-On a rare break, instead of the usual drop you'll get the full contents of a random vanilla loot chest, pulled straight from the game's own loot tables:
+And just like the item drops, **which blocks these are is decided by your world seed** — there's no random chance. In one world maybe andesite always spills an end city's treasure and mossy cobblestone always coughs up a bastion haul; in the next world it's totally different blocks. Once you find a chest block in your world, it drops that chest's loot **every single time** (the contents roll fresh each break, exactly like opening a real chest).
+
+The chest pool covers basically every generated structure:
 
 🏰 End cities · 🏜️ Desert pyramids · 🌴 Jungle temples · 🐗 Bastions · 🌑 Ancient cities · ⚔️ Trial chambers · 🚢 Shipwrecks · 📚 Strongholds · ⛏️ Mineshafts · 🛖 Villages · and more
 
-You never know which block is going to jackpot. Keep mining.
+Hunt down which blocks are the jackpot blocks in your seed.
 
 ---
 
@@ -38,6 +40,8 @@ Drops are filtered to items you can **actually obtain in survival**. No barriers
 ## ⚙️ How it works
 
 - Breaking any block cancels its normal drop and gives you the randomized one instead.
+- A block never drops its own item, so there are no infinite break-and-replace duplication loops.
+- Blocks that naturally drop nothing (like fire) still drop nothing.
 - Works in singleplayer and on servers (the server decides the drops).
 - No config needed — just drop it in and play.
 
@@ -45,7 +49,7 @@ Drops are filtered to items you can **actually obtain in survival**. No barriers
 
 - **Fabric Loader**
 - **Fabric API**
-- **Minecraft 26.1.2**
+- **Minecraft** 1.20.1, 1.21.1, 1.21.5, or 26.1.2 (download the matching file)
 
 ---
 
