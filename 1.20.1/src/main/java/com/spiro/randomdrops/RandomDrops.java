@@ -10,8 +10,11 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.LootTable;
@@ -31,33 +34,22 @@ import java.util.Set;
  * Every time a player breaks a block, this mod drops ONLY a random outcome —
  * the block's normal drop is suppressed.
  *
- * The outcome is DETERMINISTIC per block type WITHIN a world: the same kind of
- * block always gives the same thing in that world, so it feels like a consistent
- * "loot randomizer" rather than pure chaos every swing. The mapping is also
- * UNIQUE PER WORLD because the world seed is mixed into the RNG, so every new
- * world rolls a completely different set of drops.
- *
- * An "outcome" is usually a single item, but some block types are instead mapped
- * to a whole STRUCTURE CHEST loot table (end city, bastion, ancient city, etc.).
- * That mapping is decided by the seed exactly the way an item mapping is — there
- * is NO random chance. If the seed assigns a chest table to a block, that block
- * ALWAYS drops that chest's loot (and nothing else); the contents themselves roll
- * fresh each break, just like opening a real chest.
+ * The outcome is DETERMINISTIC per block type WITHIN a world and UNIQUE PER WORLD
+ * (the world seed is mixed into the RNG). An "outcome" is usually a single item,
+ * but some block types are instead mapped to a whole STRUCTURE CHEST loot table.
+ * That mapping is decided by the seed exactly like an item mapping — there is NO
+ * random chance. If the seed assigns a chest table to a block, that block ALWAYS
+ * drops that chest's loot (and nothing else).
  *
  * Rules that keep it clean:
- *   - Only survival-obtainable items are ever rolled (no barriers, command blocks,
- *     spawn eggs, etc.).
- *   - A block NEVER drops its own item, so you can't set up an infinite
- *     break/replace duplication loop.
- *   - Blocks that naturally drop nothing even with the right tool (fire, etc.)
- *     drop nothing here too.
- *   - Multi-part blocks (doors, beds, tall plants) no longer drop themselves
- *     alongside the random outcome.
+ *   - Only survival-obtainable items are ever rolled.
+ *   - A block NEVER drops its own item (no infinite break/replace dupes).
+ *   - Blocks that naturally drop nothing (fire, etc.) drop nothing here too.
+ *   - Multi-part blocks (doors, beds, tall plants) don't drop themselves alongside
+ *     the random outcome.
  *
- * NOTE: This is the 1.20.1 version. Loot tables here are addressed by
- * ResourceLocation and fetched via the server's LootDataManager (the pre-1.21
- * loot system). Trial chambers don't exist in 1.20.1, so they're absent from the
- * structure pool.
+ * NOTE: 1.20.1 loot tables are addressed by ResourceLocation and fetched via the
+ * server's LootDataManager. Trial chambers don't exist here, so they're absent.
  */
 public class RandomDrops implements ModInitializer {
 	public static final String MOD_ID = "randomdrops";
@@ -65,34 +57,27 @@ public class RandomDrops implements ModInitializer {
 
 	/**
 	 * Items that exist in the registry but can't be obtained legitimately in
-	 * survival. Matched by their registry id path (e.g. "command_block"). All
-	 * spawn eggs are filtered separately by the "_spawn_egg" suffix.
+	 * survival. Matched by registry id path. Spawn eggs are filtered separately.
 	 */
 	private static final Set<String> CREATIVE_ONLY = Set.of(
-			"barrier",
-			"light",
-			"bedrock",
-			"command_block",
-			"chain_command_block",
-			"repeating_command_block",
-			"command_block_minecart",
-			"structure_block",
-			"structure_void",
-			"jigsaw",
-			"debug_stick",
-			"knowledge_book",
-			"spawner",
-			"end_portal_frame",
-			"reinforced_deepslate",
-			"budding_amethyst",
-			"petrified_oak_slab",
-			"infested_stone",
-			"infested_cobblestone",
-			"infested_stone_bricks",
-			"infested_mossy_stone_bricks",
-			"infested_cracked_stone_bricks",
-			"infested_chiseled_stone_bricks",
+			"barrier", "light", "bedrock", "command_block", "chain_command_block",
+			"repeating_command_block", "command_block_minecart", "structure_block",
+			"structure_void", "jigsaw", "debug_stick", "knowledge_book", "spawner",
+			"end_portal_frame", "reinforced_deepslate", "budding_amethyst",
+			"petrified_oak_slab", "infested_stone", "infested_cobblestone",
+			"infested_stone_bricks", "infested_mossy_stone_bricks",
+			"infested_cracked_stone_bricks", "infested_chiseled_stone_bricks",
 			"infested_deepslate"
+	);
+
+	/**
+	 * Blocks whose loot table has no pools — they yield nothing even with the right
+	 * tool, so they should drop nothing here.
+	 */
+	private static final Set<String> NO_DROP_BLOCKS = Set.of(
+			"fire", "soul_fire", "cake", "powder_snow", "frosted_ice", "frogspawn",
+			"nether_portal", "budding_amethyst", "reinforced_deepslate", "spawner",
+			"suspicious_sand", "suspicious_gravel"
 	);
 
 	/**
@@ -145,43 +130,37 @@ public class RandomDrops implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		// BEFORE fires while the block is still in the world, so we can cancel the
-		// vanilla break and take full control of what drops.
 		PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
 			// On the client, let the normal prediction run — the server is in charge.
 			if (world.isClientSide()) {
 				return true;
 			}
 
-			ServerLevel serverLevel = (ServerLevel) world;
-
-			// Blocks that naturally drop nothing even with the right tool (fire,
-			// portals, etc.) should still drop nothing. Letting vanilla handle the
-			// break gives exactly that — no item.
-			if (dropsNothing(serverLevel, state)) {
+			// Blocks that naturally drop nothing (fire, portals, etc.) should still
+			// drop nothing. Let vanilla handle the break — it gives no item.
+			if (dropsNothing(state)) {
 				return true;
 			}
 
+			ServerLevel serverLevel = (ServerLevel) world;
 			Block brokenBlock = state.getBlock();
 
 			// Mix the world seed with the block's registry id so the same block type
-			// always maps to the same outcome in this world, but a different world
-			// (different seed) maps differently.
+			// always maps to the same outcome in this world, but a different world maps
+			// differently.
 			int blockId = BuiltInRegistries.BLOCK.getId(brokenBlock);
 			Random random = new Random(serverLevel.getSeed() * 31L + blockId);
 
 			int chestCount = STRUCTURE_CHESTS.size();
-			int itemCount = BuiltInRegistries.ITEM.size();
-			int total = itemCount + chestCount;
+			int total = BuiltInRegistries.ITEM.size() + chestCount;
 
 			// Pick the deterministic outcome. Chest loot tables live in the SAME
-			// selection space as items, so being mapped to chest loot is just another
-			// possible "drop" decided by the seed — never a random per-break chance.
+			// selection space as items — being mapped to chest loot is just another
+			// seed-decided "drop", never a random per-break chance.
 			while (true) {
 				int roll = random.nextInt(total);
 
 				if (roll < chestCount) {
-					// This block type is the one that drops this chest's loot. Always.
 					List<ItemStack> loot = rollChest(serverLevel, pos, STRUCTURE_CHESTS.get(roll));
 					breakWithoutDrops(world, pos, state);
 					for (ItemStack stack : loot) {
@@ -194,8 +173,8 @@ public class RandomDrops implements ModInitializer {
 				if (!isSurvivalObtainable(drop)) {
 					continue;
 				}
-				// Never drop the block's own item — that would let you break/replace
-				// the same block forever for an infinite supply.
+				// Never drop the block's own item — that would allow infinite
+				// break/replace duplication.
 				if (drop == brokenBlock.asItem()) {
 					continue;
 				}
@@ -221,32 +200,60 @@ public class RandomDrops implements ModInitializer {
 		return !CREATIVE_ONLY.contains(path);
 	}
 
-	/**
-	 * True if this block yields no loot at all even with the right tool (e.g. fire).
-	 * We resolve the block's own loot table and check whether it's the empty table,
-	 * which catches both "no loot table assigned" and "loot table resolves to empty".
-	 */
-	private static boolean dropsNothing(ServerLevel level, BlockState state) {
-		ResourceLocation key = state.getBlock().getLootTable();
-		return level.getServer().getLootData().getLootTable(key) == LootTable.EMPTY;
+	/** True if this block yields no loot at all even with the right tool (e.g. fire). */
+	private static boolean dropsNothing(BlockState state) {
+		// No loot table assigned at all (air, barrier, etc.).
+		if (state.getBlock().getLootTable().equals(BuiltInLootTables.EMPTY)) {
+			return true;
+		}
+		// Has a loot table, but it has no pools so it can never produce an item.
+		return NO_DROP_BLOCKS.contains(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath());
 	}
 
 	/**
-	 * Clears the block (and any attached parts like door/bed halves and tall
-	 * plants) WITHOUT any natural drops, keeping the break particles and sound.
-	 * UPDATE_SUPPRESS_DROPS propagates through the neighbour updates, so the
-	 * partner half can't sneak a drop in either.
+	 * Removes the block — and, for multi-part blocks (doors, beds, tall plants),
+	 * its partner half — WITHOUT any natural drops, keeping the break effect.
+	 *
+	 * We can't rely on UPDATE_SUPPRESS_DROPS for the partner: the engine strips that
+	 * flag during neighbour-shape updates, so the partner would still drop. Instead
+	 * we clear each part with UPDATE_KNOWN_SHAPE, which skips the drop-cascade entirely.
 	 */
 	private static void breakWithoutDrops(Level world, BlockPos pos, BlockState state) {
 		world.levelEvent(2001, pos, Block.getId(state));
+		BlockPos partner = partnerPos(world, pos, state);
+		if (partner != null) {
+			clearSilently(world, partner);
+		}
+		clearSilently(world, pos);
+	}
+
+	/** Position of the other half of a door/bed/tall-plant, or null if not multi-part. */
+	private static BlockPos partnerPos(Level world, BlockPos pos, BlockState state) {
+		if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
+			BlockPos other = state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.LOWER
+					? pos.above() : pos.below();
+			if (world.getBlockState(other).is(state.getBlock())) {
+				return other;
+			}
+		} else if (state.getBlock() instanceof BedBlock) {
+			BlockPos other = pos.relative(BedBlock.getConnectedDirection(state));
+			if (world.getBlockState(other).is(state.getBlock())) {
+				return other;
+			}
+		}
+		return null;
+	}
+
+	/** Sets a position to air (or its fluid) with no drops and no neighbour cascade. */
+	private static void clearSilently(Level world, BlockPos pos) {
 		world.setBlock(pos, world.getFluidState(pos).createLegacyBlock(),
-				Block.UPDATE_ALL | Block.UPDATE_SUPPRESS_DROPS);
+				Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
 	}
 
 	/**
-	 * Rolls the loot of a structure chest at the given position. Retries a few
-	 * times on the same table if it comes up empty so the mapped block rarely
-	 * feels like a dud. Returns empty only if every roll was empty.
+	 * Rolls the loot of a structure chest at the given position. Retries a few times
+	 * on the same table if it comes up empty so the mapped block rarely feels like a
+	 * dud. Returns empty only if every roll was empty.
 	 */
 	private static List<ItemStack> rollChest(ServerLevel level, BlockPos pos, ResourceLocation key) {
 		LootParams params = new LootParams.Builder(level)
