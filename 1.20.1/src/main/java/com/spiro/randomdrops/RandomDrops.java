@@ -153,14 +153,15 @@ public class RandomDrops implements ModInitializer {
 				return true;
 			}
 
+			ServerLevel serverLevel = (ServerLevel) world;
+
 			// Blocks that naturally drop nothing even with the right tool (fire,
 			// portals, etc.) should still drop nothing. Letting vanilla handle the
 			// break gives exactly that — no item.
-			if (dropsNothing(state)) {
+			if (dropsNothing(serverLevel, state)) {
 				return true;
 			}
 
-			ServerLevel serverLevel = (ServerLevel) world;
 			Block brokenBlock = state.getBlock();
 
 			// Mix the world seed with the block's registry id so the same block type
@@ -220,9 +221,14 @@ public class RandomDrops implements ModInitializer {
 		return !CREATIVE_ONLY.contains(path);
 	}
 
-	/** True if this block has no loot table at all (e.g. fire) — it should drop nothing. */
-	private static boolean dropsNothing(BlockState state) {
-		return state.getBlock().getLootTable().equals(BuiltInLootTables.EMPTY);
+	/**
+	 * True if this block yields no loot at all even with the right tool (e.g. fire).
+	 * We resolve the block's own loot table and check whether it's the empty table,
+	 * which catches both "no loot table assigned" and "loot table resolves to empty".
+	 */
+	private static boolean dropsNothing(ServerLevel level, BlockState state) {
+		ResourceLocation key = state.getBlock().getLootTable();
+		return level.getServer().getLootData().getLootTable(key) == LootTable.EMPTY;
 	}
 
 	/**
