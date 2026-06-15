@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "randomdrops",
+	"version": "${version}",
+	"name": "Random Drops",
+	"description": "Breaking any block pops out a random item. Each block type is mapped to its own consistent random drop.",
+	"authors": [
+		"Spiro"
+	],
+	"contact": {},
+	"license": "CC0-1.0",
+	"icon": "assets/randomdrops/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.spiro.randomdrops.RandomDrops"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*"
+	}
+}
