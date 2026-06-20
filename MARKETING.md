@@ -1,4 +1,4 @@
-# Random Drops — Marketing & Monetization Copy
+# droprandomizer — Marketing & Monetization Copy
 
 ## Ko-fi donation page
 
@@ -9,13 +9,13 @@
 Spiro — Minecraft Mods
 
 **Short bio:**
-14 y/o dev making Minecraft mods. Currently: Random Drops 🎲
+14 y/o dev making Minecraft mods. Currently: droprandomizer 🎲
 
 **About / description:**
 Hey, I'm Spiro 👋
 
 I make free, open-source Minecraft mods in my spare time. My first release is
-Random Drops — break any block and get a random item, with each world being its
+droprandomizer — break any block and get a random item, with each world being its
 own loot randomizer and rare structure-chest jackpots.
 
 Everything I make is free and always will be. If you've had fun with my mods and
@@ -25,7 +25,7 @@ means a lot 🙏
 ☕ = more mods. Thank you!
 
 **Donate blurb for Modrinth/CurseForge link field:**
-Random Drops is free and open-source. If you enjoy it, you can support development
+droprandomizer is free and open-source. If you enjoy it, you can support development
 here: https://ko-fi.com/spiromods
 
 ---
@@ -42,7 +42,7 @@ unique drops [Fabric 1.20.1–latest]
 **Body:**
 Hey everyone, this is my first ever Minecraft mod and I'm pretty hyped to share it.
 
-It's called **Random Drops**. The idea: break any block and instead of the normal
+It's called **droprandomizer**. The idea: break any block and instead of the normal
 drop, you get a random item. The twist is that the drops are **tied to your world
 seed** — so within one world, a block type always gives the same item (dirt might
 always be netherite, stone might always be a stick), but every new world reshuffles
@@ -60,7 +60,7 @@ It's **free and open-source** (CC0), built with Fabric. I made builds for
 **1.20.1, 1.21.1, 1.21.5, and the latest** so far.
 
 Download: <Modrinth link>
-Source code: https://github.com/spiroclainos-web/RandomBlockDrops
+Source code: https://github.com/spiroclainos-web/droprandomizer
 
 I'm 14 and still learning, so any feedback is super welcome. Hope you enjoy it!
 

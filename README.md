@@ -1,8 +1,8 @@
-# Random Drops
+# droprandomizer
 
 Break a block, get something completely different.
 
-Random Drops turns every block in the world into a mystery box. Each block type is
+droprandomizer turns every block in the world into a mystery box. Each block type is
 secretly mapped to its own random item, and that mapping is **tied to the world seed** —
 so every new world is a completely different loot randomizer to figure out. Drops are
 filtered to items you can actually obtain in survival, and on rare breaks a block will
@@ -56,7 +56,7 @@ The finished jar lands in `build/libs/`. Requires **Fabric API** at runtime.
 
 ## Tweaking
 
-All the knobs are constants at the top of `RandomDrops.java`:
+All the knobs are constants at the top of `DropRandomizer.java`:
 
 - `CREATIVE_ONLY` — item IDs to keep out of the drop pool.
 - `STRUCTURE_CHESTS` — which structure loot tables can be mapped to blocks. The size of

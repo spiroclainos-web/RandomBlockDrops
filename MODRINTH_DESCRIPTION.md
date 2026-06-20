@@ -1,8 +1,8 @@
-# 🎲 Random Drops
+# 🎲 droprandomizer
 
 **Break a block. Get something completely different.**
 
-Random Drops turns every block in the world into a mystery box. Mine a dirt block and you might get a netherite sword. Chop some leaves and out pops a diamond. Punch stone and... who knows? Every block type is secretly mapped to its own random item — and that mapping is yours to discover.
+droprandomizer turns every block in the world into a mystery box. Mine a dirt block and you might get a netherite sword. Chop some leaves and out pops a diamond. Punch stone and... who knows? Every block type is secretly mapped to its own random item — and that mapping is yours to discover.
 
 ---
 

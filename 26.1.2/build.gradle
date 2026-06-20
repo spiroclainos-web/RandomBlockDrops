@@ -16,7 +16,7 @@ repositories {
 
 loom {
 	mods {
-		"randomdrops" {
+		"droprandomizer" {
 			sourceSet sourceSets.main
 		}
 	}

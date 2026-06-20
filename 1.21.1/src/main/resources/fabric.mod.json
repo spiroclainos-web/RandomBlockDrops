@@ -1,19 +1,19 @@
 {
 	"schemaVersion": 1,
-	"id": "randomdrops",
+	"id": "droprandomizer",
 	"version": "${version}",
-	"name": "Random Drops",
+	"name": "droprandomizer",
 	"description": "Breaking any block pops out a random item. Each block type is mapped to its own consistent random drop.",
 	"authors": [
 		"Spiro"
 	],
 	"contact": {},
 	"license": "CC0-1.0",
-	"icon": "assets/randomdrops/icon.png",
+	"icon": "assets/droprandomizer/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.spiro.randomdrops.RandomDrops"
+			"com.spiro.droprandomizer.DropRandomizer"
 		]
 	},
 	"depends": {

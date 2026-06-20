@@ -1,4 +1,4 @@
-package com.spiro.randomdrops;
+package com.spiro.droprandomizer;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -29,7 +29,7 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * RandomDrops (1.20.1 build)
+ * DropRandomizer (1.20.1 build)
  *
  * Every time a player breaks a block, this mod drops ONLY a random outcome —
  * the block's normal drop is suppressed.
@@ -51,8 +51,8 @@ import java.util.Set;
  * NOTE: 1.20.1 loot tables are addressed by ResourceLocation and fetched via the
  * server's LootDataManager. Trial chambers don't exist here, so they're absent.
  */
-public class RandomDrops implements ModInitializer {
-	public static final String MOD_ID = "randomdrops";
+public class DropRandomizer implements ModInitializer {
+	public static final String MOD_ID = "droprandomizer";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	/**
@@ -185,7 +185,7 @@ public class RandomDrops implements ModInitializer {
 			}
 		});
 
-		LOGGER.info("RandomDrops loaded — every block now drops a seed-mapped random item or structure chest loot!");
+		LOGGER.info("DropRandomizer loaded — every block now drops a seed-mapped random item or structure chest loot!");
 	}
 
 	/** True only for items a player can legitimately obtain in survival. */
